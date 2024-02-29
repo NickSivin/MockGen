@@ -22,7 +22,7 @@ def function_custom_name(line):
 
 
 def function_params(function):
-    params_string = __first_match_or_empty(r'(?<=\().+(?=\))', function)
+    params_string = __cut_string_between_symbols(function, '(', ')')
     if params_string:
         params = params_string.split(',')
         generic_types = function_generic_types(function)
@@ -32,7 +32,8 @@ def function_params(function):
 
 
 def function_result_type(function):
-    return __first_match_or_empty(r'(?!.*>)(?!.*\))(?![async|throws])[\w\[\]]+', function)
+    params = function_params(function)
+    return __first_match_or_empty(r'(?!.*>)(?!.*\))(?![async|throws])[^\s][\w\:\s\[\]]+', function)
 
 
 def function_generic_types(function):
@@ -69,3 +70,17 @@ def __sanitized_parameter(parameter, generic_types):
 def __first_match_or_empty(regex, string):
     match = re.search(regex, string)
     return match.group() if match else ''
+
+def __cut_string_between_symbols(string, start_symbol, end_symbol):
+    trimmed_string = __first_match_or_empty(fr'(?<=\{start_symbol}).*', string)
+    count = 1
+    result = ''
+    for char in trimmed_string:
+        if char == start_symbol:
+            count += 1
+        if char == end_symbol:
+            count -= 1
+        if count == 0:
+            break
+        result += char
+    return result

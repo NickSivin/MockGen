@@ -32,6 +32,9 @@ protocol ServiceProtocol {
         deviceB: CBUUID,
         deviceC: CBUUID
     ) async -> T
+
+    func fetchConfig() async throws -> [String: String]
+    func fetchData(_ name: (String, count: Int)) async -> (() -> Void)
 }
 
 protocol StorageProtocol {
