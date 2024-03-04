@@ -32,8 +32,10 @@ def function_params(function):
 
 
 def function_result_type(function):
-    params = function_params(function)
-    return __first_match_or_empty(r'(?!.*>)(?!.*\))(?![async|throws])[^\s][\w\:\s\[\]]+', function)
+    if 'where' in function:
+        return __first_match_or_empty(r'(?!.*>)(?!.*\))(?![async|throws])[^\s][\w\:\s\[\]]*(?=\swhere)', function)
+    else:
+        return __first_match_or_empty(r'(?!.*>)(?!.*\))(?![async|throws])[^\s][\w\:\s\[\]]+', function)
 
 
 def function_generic_types(function):

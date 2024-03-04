@@ -31,7 +31,7 @@ protocol ServiceProtocol {
         // Internal comment test
         deviceB: CBUUID,
         deviceC: CBUUID
-    ) async -> T
+    ) async -> T where T : DeviceListProtocol
 
     func fetchConfig() async throws -> [String: String]
     func fetchData(_ name: (String, count: Int)) async -> (() -> Void)
