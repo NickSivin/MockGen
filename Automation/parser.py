@@ -1,6 +1,11 @@
 import re
 
 
+def file_imports(file):
+    file.seek(0)
+    return list(filter(lambda line: line.startswith('import '), file))
+
+
 def property_definition(property_line):
     return __first_match_or_empty(r'.*(?=\s{)', property_line)
 
@@ -15,10 +20,6 @@ def property_type(property_line):
 
 def function_name(function):
     return __first_match_or_empty(r'(?<=func\s)[^(<|\()]*', function)
-
-
-def function_custom_name(line):
-    return __first_match_or_empty(r'(?<=\/\/\sfunc_name:\s)\w+', line)
 
 
 def function_params(function):
@@ -49,29 +50,31 @@ def function_generic_types(function):
 
 
 def replace_generic_type_if_needed(parameter_type, generic_types):
-    if not generic_types:
-        return parameter_type
-    actual_type = parameter_type
-    if '.' in parameter_type:
-        regex = r'.?(?=\.?)'
-        actual_type = re.search(regex, parameter_type).group()
-    return 'Any' if actual_type in generic_types else parameter_type
+    parameter_type = parameter_type.split('.')[0] if '.' in parameter_type else parameter_type
+    return 'Any' if parameter_type in generic_types else parameter_type
 
 
 def __sanitized_parameter(parameter, generic_types):
-    parts = parameter.split(' ')
-    if len(parts) == 3:
-        parts.pop(0)
-        actual_type = replace_generic_type_if_needed(parts[1], generic_types)
-        parts[1] = actual_type
-        return ' '.join(parts)
-    else:
-        return parameter
+    parts = parameter.split(':')
+
+    parameter_name = parts[0].strip()
+    if ' ' in parameter_name:
+        parameter_name = parameter_name.split(' ')[-1]
+    if parameter_name.startswith('_'):
+        parameter_name = parameter_name[1:].strip()
+
+    parameter_type = parts[1].strip()
+    if '@escaping' in parameter_type:
+        parameter_type = parameter_type.replace('@escaping', '').strip()
+    parameter_type = replace_generic_type_if_needed(parameter_type, generic_types)
+
+    return ': '.join([parameter_name, parameter_type])
 
 
 def __first_match_or_empty(regex, string):
     match = re.search(regex, string)
     return match.group() if match else ''
+
 
 def __cut_string_between_symbols(string, start_symbol, end_symbol):
     trimmed_string = __first_match_or_empty(fr'(?<=\{start_symbol}).*', string)

@@ -14,10 +14,10 @@ class PropertyInfo:
 
 
 class FunctionInfo:
-    def __init__(self, function, custom_name):
+    def __init__(self, function):
         self.function = function
         self.name = parser.function_name(function)
-        self.custom_name = custom_name
+        self.custom_name = ''
         self.params = parser.function_params(function)
         self.generic_types = parser.function_generic_types(function)
         self.result_type = parser.function_result_type(function)
@@ -42,17 +42,17 @@ def __check_protocol_in_file_and_generate_mock_file_if_needed(file, root_path, p
 
 
 def __generate_mock_file(file, root_path, protocol_definition, protocol_name):
-    file.seek(0)
+    imports = parser.file_imports(file)
     protocol_lines = __make_protocol_body_lines(file, protocol_definition)
     functions = __make_protocol_functions(protocol_lines)
     properties = __make_protocol_properties(protocol_lines)
+    __find_and_rename_all_duplicates(functions)
 
     mock_file_name = protocol_name.replace(config.PROTOCOL_IDENTIFICATION, '', 1) + 'Mock'
     mock_file_path = os.path.join(root_path, config.OUTPUT_PATH, f'{mock_file_name}.swift')
     with open(mock_file_path, 'w') as mock_file:
-        file.seek(0)
         file_helper.write_header(mock_file, mock_file_name)
-        file_helper.write_imports(mock_file, file)
+        file_helper.write_imports(mock_file, imports)
         file_helper.write_class_start_line(mock_file, mock_file_name, protocol_name)
         for property_info in properties:
             file_helper.write_property(mock_file, property_info)
@@ -62,6 +62,7 @@ def __generate_mock_file(file, root_path, protocol_definition, protocol_name):
 
 
 def __make_protocol_body_lines(file, protocol_definition):
+    file.seek(0)
     lines = []
     is_inside_protocol = False
     for line in file:
@@ -91,36 +92,82 @@ def __make_protocol_properties(lines):
 def __make_protocol_functions(lines):
     functions = []
     function = ''
-    prev_line = ''
-    custom_name_candidate = ''
     for line in lines:
         if line.startswith('//'):
-            prev_line = line
             continue
         if line.startswith('func'):
-            __append_function(function, functions, custom_name_candidate)
+            __append_function(function, functions)
             function = line
-            custom_name_candidate = prev_line
         elif line.startswith('var'):
-            __append_function(function, functions, custom_name_candidate)
+            __append_function(function, functions)
             function = ''
-            custom_name_candidate = ''
             continue
         else:
             if function.endswith(','):
                 function += ' '
             function += line
-        prev_line = line
-    __append_function(function, functions, custom_name_candidate)
+    __append_function(function, functions)
     return functions
 
 
-def __append_function(function, functions, custom_name_candidate):
+def __append_function(function, functions):
     if not function:
         return
+    functions.append(FunctionInfo(function.strip()))
 
-    custom_name = parser.function_custom_name(custom_name_candidate)
-    functions.append(FunctionInfo(function.strip(), custom_name.strip()))
+
+def __find_and_rename_all_duplicates(functions):
+    functions = list(filter(lambda func: not func.custom_name, functions))
+    # Find and rename duplicates with same name
+    # by adding params name to end
+    renamed_functions = __find_and_rename_duplicates(
+        functions,
+        lambda func: func.name,
+        lambda param: __upper_param_part(param, 0)
+    )
+    # Find and rename duplicates with same custom name (e.g. functions has same parameters count)
+    # by adding types of params to end
+    __find_and_rename_duplicates(
+        renamed_functions,
+        lambda func: func.custom_name,
+        lambda param: __upper_param_part(param, 1)
+    )
+
+
+def __upper_param_part(param, index):
+    return __upper_first(param.split(':')[index].strip())
+
+
+def __find_and_rename_duplicates(functions, func_name_lambda, param_part_lambda):
+    duplicates = __find_duplicates(functions, func_name_lambda)
+    grouped_functions = list(map(lambda items: __rename_duplicates(items[1], param_part_lambda), duplicates.items()))
+    return __flattening_list(grouped_functions)
+
+
+def __find_duplicates(functions, func_name_lambda):
+    grouped_functions = {}
+    for function in functions:
+        function_name = func_name_lambda(function)
+        if function_name in grouped_functions:
+            grouped_functions[function_name].append(function)
+        else:
+            grouped_functions[function_name] = [function]
+    return {k: v for k, v in grouped_functions.items() if len(v) > 1}
+
+
+def __rename_duplicates(functions, param_part_lambda):
+    for function in functions:
+        params_string = ''.join(list(map(lambda param: param_part_lambda(param), function.params)))
+        function.custom_name = function.name + params_string
+    return functions
+
+
+def __flattening_list(nested_sublists):
+    return [item for sublist in nested_sublists for item in sublist]
+
+
+def __upper_first(string):
+    return string[:1].upper() + string[1:]
 
 
 if __name__ == '__main__':

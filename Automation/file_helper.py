@@ -1,6 +1,4 @@
 import config
-import parser
-
 
 def write_header(file, file_name):
     file.write('//\n')
@@ -11,11 +9,9 @@ def write_header(file, file_name):
     file.write('//\n')
 
 
-def write_imports(file, protocol_file):
+def write_imports(file, imports):
     file.write('\n')
-    for line in protocol_file:
-        if 'import' in line:
-            file.write(f'{line.strip()}\n')
+    [file.write(f'{line.strip()}\n') for line in imports]
     file.write(f'@testable import {config.TESTABLE_MODULE}\n')
     file.write('\n')
 

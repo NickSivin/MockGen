@@ -33,23 +33,22 @@ protocol ServiceProtocol {
         deviceC: CBUUID
     ) async -> T where T : DeviceListProtocol
 
-    func fetchConfig() async throws -> [String: String]
-    func fetchData(_ name: (String, count: Int)) async -> (() -> Void)
+    func requestConfig<T>(_ block: @escaping (T) -> Void) async throws -> [String: String]
+    func requestConfigParser(_ name: (String, count: Int)) async -> (([String: String]) -> Config)
 }
 
 protocol StorageProtocol {
     // Different property type
-    // func_name: setDeviceIDString
     func setDeviceID(_ id: String)
-    // func_name: setDeviceIDInt
     func setDeviceID(_ id: Int)
-    // func_name: setDeviceIDUUID
-    func setDeviceID(_ id: UUID)
+    func setDeviceID(with id: UUID)
+    // func_name: setDeviceIDIntClosure
+    func setDeviceID(with id: () -> Int)
+    func setDeviceID<T>(_ id: T.Type)
 
-    // Different property count
+    // Different parameters count and types
     func saveDeviceInfo(fileName: String)
-    // func_name: saveDeviceInfoPath
     func saveDeviceInfo(fileName: String, filePath: String)
-    // func_name: saveDeviceInfoPathExtension
+    func saveDeviceInfo(fileName: String, filePath: Path)
     func saveDeviceInfo(fileName: String, filePath: String, fileExtension: String)
 }
